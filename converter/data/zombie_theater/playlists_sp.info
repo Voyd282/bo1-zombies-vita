@@ -1,0 +1,18 @@
+// playlists_sp.info - offline stand-in for the retail online WAD entry of the same name.
+// Retail Black Ops (SP/zombies exe) downloads the Demonware publisher file online_tu14_sp_<language>.wad and parses
+// its playlists_sp.info with Playlist_ParsePlaylists; a `settings` block's `setdvar` lines set dvars.
+// The real file is not on disk anywhere in the install. The values below are MEASURED: the retail session's dvar
+// pool (retail research extracted/exe/dvars-live.json, all ten flags 0x4000 = created by this path).
+// scr_zm_extra_perk_*: read by maps/_zombiemode_ffotd.gsc; the Mule Kick machine stays on a map when its own dvar
+// or scr_zm_extra_perk_all is non-zero (zombie_moon always has it), otherwise the script removes it.
+settings
+setdvar scr_zm_extra_perk_all 1
+setdvar scr_zm_extra_perk_theater 0
+setdvar scr_zm_extra_perk_pentagon 0
+setdvar scr_zm_extra_perk_cosmodrome 0
+setdvar scr_zm_extra_perk_coast 0
+setdvar scr_zm_extra_perk_temple 0
+setdvar scr_zm_extra_perk_cod5_prototype 0
+setdvar scr_zm_extra_perk_cod5_asylum 0
+setdvar scr_zm_extra_perk_cod5_sumpf 0
+setdvar scr_zm_extra_perk_cod5_factory 0

@@ -1,0 +1,11 @@
+# what the converter makes from the player's game: never in the repository
+output/
+*.ff
+*.iwd
+*.iwi
+# release assets go to GitHub Releases, not into the repository
+*.vpk
+*.log
+__pycache__/
+*.pyc
+dist/

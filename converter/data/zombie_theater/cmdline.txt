@@ -1,0 +1,1 @@
++set bo1_zombies 1 +set bo1_headless_client 1 +set com_maxfps 60 +set ragdoll_enable 0 +set cg_mod_asyncServer 1 +set sm_enable 0 +set r_depthPrepass 0 +set bo1_mod_ailod 0 +set bo1_mod_svfast 0 +set bo1_mod_scriptperf 0 +set r_lodScaleRigid 2 +set r_lodScaleSkinned 2 +set r_gfxopt_dynamic_foliage 0 +devmap zombie_theater
