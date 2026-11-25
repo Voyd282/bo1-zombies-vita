@@ -501,6 +501,21 @@ def collect(stream, events):
     return models, resolve
 
 
+def card_lods(stream, model, lods):
+    """a foliage model whose LOD 1 is a card: flat cross-planes for the distance, a fraction of LOD 0's triangles (Nacht's
+    foliage_pacific_grass07_clump01: LOD 0 the bush, mtl_foliage_cod5_grass05c; LOD 1-3 grass05c_card). Its LOD 0 stays -
+    without it the bush next to the player was the card, seen through (user 2026-11-25). A plain LOD chain halves"""
+    if "foliage" not in model.name.lower():
+        return False
+    tris = []
+    for count, first in lods[:2]:
+        tris.append(sum(Surface(stream, s, r).tris for s, r in model.surfaces[first:first + count]))
+    return tris[1] * CARD_RATIO < tris[0]
+
+
+CARD_RATIO = 4  # LOD 1 under a quarter of LOD 0's triangles: a card, not a simpler bush
+
+
 def lod_table(stream, model):
     """[(surface count, first surface)] of the model's LODs; [] for a model without surfaces; None if not understood"""
     num_lods = struct.unpack_from("<h", stream, model.a + 216)[0]
@@ -598,7 +613,7 @@ def _plan(stream, models, drop_lod0, simplify_models, keep, cache):
         else:
             budgets, errors = BUDGETS, TARGET_ERRORS
         top = 0
-        if drop_lod0 and len(lods) > 1 and not first_person:
+        if drop_lod0 and len(lods) > 1 and not first_person and not card_lods(stream, model, lods):
             top = 1
             # EXTRA_LOD_DROP (zone_repack.py --drop-lods 2, big maps): one more of the model's own LODs left out when it
             # has one - "all" models, or only those whose LOD would be "over" its budget and simplified otherwise

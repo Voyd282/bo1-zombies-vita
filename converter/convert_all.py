@@ -528,10 +528,11 @@ class Converter:
             return dst, True, "copied"
         # (work/zonecache: a zone converted before from the same file, zone map and flags is reused; a model list's
         # content counts, not its path)
+        # (v6: model_lowpoly.py keeps foliage LOD 0 when LOD 1 is a card - Nacht's bushes, 2026-11-25)
         lists = [sha1(flags[i + 1]) for i, f in enumerate(flags) if f in ("--drop-lods-models", "--mono-3d",
                                                                          "--empty-models", "--drop-anims",
                                                                          "--rename-models")]
-        key = hashlib.sha1(("%s %s %s %s v5" % (sha1(src), sha1(zmap), " ".join(flags), " ".join(lists))).encode()
+        key = hashlib.sha1(("%s %s %s %s v6" % (sha1(src), sha1(zmap), " ".join(flags), " ".join(lists))).encode()
                            ).hexdigest()
         cached = os.path.join(self.work, "zonecache", key + ".ff")
         self.budget_of[dst] = cached[:-3] + ".json"  # (its measured memory: zone_repack.py --budget)
