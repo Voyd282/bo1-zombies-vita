@@ -11,3 +11,13 @@ program needs. The data it ships (`converter/data`) is layout information about 
 names, checksums) and the project's own settings, not game content.
 
 Do not share the files the converter makes: they contain Activision's game data. Buy the game; it is on Steam.
+
+## Third-party material
+
+- **PS Vita button icons** (`converter/data/icons`): from "Xelu's Free Controllers & Keyboard Prompts" by Nicolae
+  "Xelu" Berbece (@xelubest), released under Creative Commons 0 (CC0). Source:
+  https://consolemods.org/wiki/File:ButtonIcon-PSvita-Dpad.png
+- **meshoptimizer** (`converter/tools/meshopt.dll`, the model simplifier): Copyright (c) 2016-2024 Arseny Kapoulkine,
+  MIT license - see `converter/tools/meshopt_LICENSE.md`.
+- **Cover, icon and logo** (the VPK's LiveArea, start screen and the default loading picture): based on Call of Duty:
+  Black Ops artwork; Call of Duty and Black Ops and their logos are trademarks of Activision Publishing, Inc.

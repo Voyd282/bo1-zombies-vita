@@ -1,0 +1,5 @@
+type modifier
+name SANDBOX
+description A test area: power on, every door open, DEFCON 5, points, and pads in the spawn room that give every perk, power-up and weapon and control the rounds.
+maps zombie_pentagon
+order 20

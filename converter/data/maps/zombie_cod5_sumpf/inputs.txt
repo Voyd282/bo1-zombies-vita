@@ -1,0 +1,3 @@
+zone/Common/zombie_cod5_sumpf.ff	53923680	e78c57257307619e9923870e287ebd569b0803d8
+zone/Common/zombie_cod5_sumpf_patch.ff	354112	004583a8a6ae52161b51f889c53379e630eced58
+zone/English/en_zombie_cod5_sumpf.ff	805216	4126e5216a1a00d65207f7313c31fe25df979c01

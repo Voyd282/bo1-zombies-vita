@@ -9,3 +9,9 @@ output/
 __pycache__/
 *.pyc
 dist/
+# the converter's working files and its settings
+converter/work/
+converter/output/
+converter/converter_settings.json
+# ... but the port's own pictures it ships (the cover)
+!converter/data/cover/*.iwi

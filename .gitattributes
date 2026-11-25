@@ -1,3 +1,8 @@
-# the batch file keeps Windows line endings in every checkout and in the release's source zip
-*.bat text eol=crlf
+# the converter's data and tools: binary files are never converted
+*.zmap binary
+*.dll binary
+*.png binary
+*.iwi binary
 *.zip binary
+*.vpk binary
+*.bat text eol=crlf

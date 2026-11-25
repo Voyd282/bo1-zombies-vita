@@ -1,0 +1,5 @@
+type modifier
+name ZOMBIE COUNTER
+description While the scoreboard is shown: the zombies alive and the zombies left this round, above the round number.
+maps original
+order 30

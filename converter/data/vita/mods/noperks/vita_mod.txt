@@ -1,0 +1,6 @@
+type modifier
+name NO PERKS
+description Every perk machine is gone. Pack-a-Punch and the box stay; the free perk power-up never drops.
+maps original
+order 40
+args +set noperks 1

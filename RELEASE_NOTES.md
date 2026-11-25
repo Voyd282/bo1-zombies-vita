@@ -1,5 +1,21 @@
 # Release notes
 
+## 1.0
+
+- **All zombies maps**: Kino der Toten and "Five", the DLC maps Ascension, Call of the Dead, Shangri-La and Moon, and
+  the World at War maps Nacht der Untoten, Verrückt, Shi No Numa and Der Riese (the DLC maps when you own them).
+- **Mods and custom maps** from your PC's `mods` folder, measured against the Vita's memory and made smaller where
+  needed; **modifiers** (Horde, No Perks, Sandbox, Zinfo) that combine with any map.
+- **New converter with a window** (`BO1 Zombies Converter.bat`): pick the maps and mods, press Convert. It reads the
+  game's files itself - no game or other program is run.
+- **New main menu and lobby**: map / mod / modifier selection, map pictures, the Vita account name in the game.
+- **HD MODE**: world lit by its lamps, spotlights and the sun, lit models, shadows - as on the PC.
+- **Settings** on five pages (Graphics, HD, Controls, Sound, Dev); gyro aiming, touch options, button layouts.
+- Weapon reflections as on the PC (WEAPON SHINE), the maps' skies, fog and color filters, particle clouds.
+- PS Vita buttons in the game's prompts and the HUD (Xelu's controller prompts, CC0).
+- The port's own cover: icon, LiveArea, start screen, loading picture.
+- Many fixes and speed-ups since 0.1.
+
 ## 0.1 - first public test
 
 - Kino der Toten, English, from your own PC copy of Black Ops (`Convert Game Files.bat`).

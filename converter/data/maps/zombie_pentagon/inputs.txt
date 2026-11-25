@@ -1,0 +1,3 @@
+zone/Common/zombie_pentagon.ff	48229216	0ff95d0739ee187816ce3a6beddf68e5fa5c9423
+zone/Common/zombie_pentagon_patch.ff	300416	979c3e0baba18ad05889e7b70d70c2bf3123bca8
+zone/English/en_zombie_pentagon.ff	985024	a6d4a99c26a5fdcb3642cf375cd9a1f9946cd2fa

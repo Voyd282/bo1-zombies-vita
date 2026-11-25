@@ -1,0 +1,576 @@
+// The Vita front end: "main" (SOLO, CO-OP, SETTINGS, QUIT), "lobby" (map, mod, modifiers, START GAME, the players),
+// "mapselect" (the ORIGINAL and CUSTOM tabs), "modselect", "modifiers" and the popup "quitconfirm". Design: the lobby
+// comes first, solo is a one-player lobby, LAN co-op later opens the same lobby with more players (memory:
+// menu-lobby-design). The lists and the selection are dvars the engine fills (ui_main.cpp UI_Vita_LobbySetup); the
+// rows exec its commands bo1_vita_list / _tab / _detail / _pick / _lobby / _start.
+// UIMENU_MAIN opens "main" (at startup without a map, and after a level); back from a map the lobby started, the
+// engine opens "lobby" on top of it (UI_Vita_OpenLobbyIfInSession). "main"'s onOpen also starts the music
+// (bo1_vita_resume: UI_Vita_Music).
+//
+// The look (2026-11-11): the map's art fills the screen and stays visible on the right; the left, where the rows are,
+// is darkened by a gradient. Colors of the game's zombies menus: near-black brown, blood red, bone white text, amber
+// for values and hints. A focused row gets a red bar fading to the right, an amber marker that pulses, and white
+// text; the other rows are plain text. The bottom bar tells the buttons, a line above it what the focused row does.
+//
+// A row is built as the retail pause menu builds its rows: a highlight shown while the row has focus, a blank button
+// (type 3: takes the focus, runs onFocus and the action) and the label. Gamepad navigation only stops on items with
+// an onFocus script (ui_shared.cpp Menu_SetNextCursorItem), and type 1 buttons take the focus flag from the mouse
+// position (Item_SetFocus) - so type 3 for anything selectable, type 1 only for text ("type" must come before
+// "text": only some types carry text data, not 0). Macro parameters are not replaced inside quoted strings, and
+// numeric fields take numbers only (no arithmetic): the macros take whole strings and baselines.
+
+#define ITEM_TYPE_DEFAULT	0
+#define ITEM_TYPE_IMAGE		2
+#define ITEM_TYPE_TEXT		1
+#define ITEM_TYPE_BLANKBUTTON	3
+#define WINDOW_STYLE_FILLED	1
+#define WINDOW_STYLE_SHADER	3
+#define FONT_TEXT		1
+#define FONT_BIG		2
+#define FONT_SMALL		3
+#define ALIGN_LEFT		0
+#define ALIGN_CENTER		1
+#define ALIGN_RIGHT		2
+// rect alignment: horizontal / vertical (1 left/top, 2 center, 4 fullscreen)
+#define HA_CENTER		2
+#define VA_TOP			1
+#define HA_FULL			4
+#define VA_FULL			4
+// the d-pad's keys (bo1_uikey 22 / 23 send the same)
+#define KEY_DPAD_LEFT		22
+#define KEY_DPAD_RIGHT		23
+// up / down: the d-pad, the left stick, the arrow keys (ui_shared.cpp Menu_HandleKey)
+#define KEY_DPAD_UP		20
+#define KEY_DPAD_DOWN		21
+#define KEY_APAD_UP		28
+#define KEY_APAD_DOWN		29
+#define KEY_UPARROW		154
+#define KEY_DOWNARROW		155
+
+// the palette: bone (text), dim bone (secondary text), blood (the accent), amber (values, hints, the marker)
+#define C_BONE			0.93 0.88 0.76
+#define C_DIM			0.62 0.58 0.5
+#define C_BLOOD			0.72 0.06 0.04
+#define C_BLOOD_DARK		0.42 0.03 0.02
+#define C_AMBER			0.98 0.7 0.24
+
+// the left edge of the rows (a 16:9 screen is 853 wide at 480 high: its left edge is at -427), and where a focused
+// row's bar starts: left of the screen, so only the soft right end of its material (menu_button_backing) shows
+#define LEFT			-390
+#define BAR_LEFT		-500
+
+#define SND_OVER		play "uin_navigation_over";
+#define SND_CLICK		play "uin_navigation_click";
+#define SND_BACK		play "uin_navigation_backout";
+
+// a line of text (not selectable): base is the text's baseline below y, content its text line ('text "..."' or
+// 'exp text( ... )'), shown when it shows (an expression)
+#define LABEL(x, y, w, h, base, font, scale, align, color, a, content, shown) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_TEXT \
+		rect			x y w h HA_CENTER VA_TOP \
+		content \
+		textfont		font \
+		textscale		scale \
+		textalign		align \
+		textalignx		0 \
+		textaligny		base \
+		forecolor		color a \
+		visible			when( shown ) \
+		decoration \
+	}
+
+// a tinted picture: a material stretched over the rect (white: a plain box)
+#define TINT(x, y, w, h, halign, valign, mat, color, a, shown) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_IMAGE \
+		rect			x y w h halign valign \
+		style			WINDOW_STYLE_SHADER \
+		background		mat \
+		forecolor		color a \
+		visible			when( shown ) \
+		decoration \
+	}
+
+// a map's art (its loading screen material, named by the dvar art; artOn: the dvar telling it is loaded)
+#define ART(x, y, w, h, halign, valign, art, artOn) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_IMAGE \
+		rect			x y w h halign valign \
+		style			WINDOW_STYLE_SHADER \
+		exp material		( dvarString( art ) ) \
+		forecolor		1 1 1 1 \
+		visible			when( dvarbool( artOn ) ) \
+		decoration \
+	}
+
+// the background: the map's art (when it has one) under a light veil, the left darkened for the rows, the blood behind
+// the title, the title, the screen's name on the right, and the bottom bar with the buttons (hints: its text)
+#define BACKGROUND(sub, art, artOn, hints) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_DEFAULT \
+		rect			0 0 640 480 HA_FULL VA_FULL \
+		style			WINDOW_STYLE_FILLED \
+		backcolor		0.035 0.025 0.02 1 \
+		visible			1 \
+		decoration \
+	} \
+	ART(0, 0, 640, 480, HA_FULL, VA_FULL, art, artOn) \
+	TINT(0, 0, 640, 480, HA_FULL, VA_FULL, "white", 0.03 0.015 0.01, 0.4, 1) \
+	TINT(0, 0, 600, 480, HA_FULL, VA_FULL, "gradient", 1 1 1, 1, 1) \
+	TINT(0, 0, 420, 480, HA_FULL, VA_FULL, "gradient", 1 1 1, 0.8, 1) \
+	TINT(0, 0, 640, 110, HA_FULL, VA_FULL, "gradient_top", 1 1 1, 0.9, 1) \
+	TINT(-450, -92, 290, 190, HA_CENTER, VA_TOP, "menu_zom_lobby_blood_big01", C_BLOOD_DARK, 0.9, 1) \
+	LABEL(LEFT, 20, 300, 20, 18, FONT_BIG, 0.28, ALIGN_LEFT, C_AMBER, 0.95, text "B L A C K   O P S", 1) \
+	LABEL(LEFT, 38, 400, 46, 44, FONT_BIG, 0.78, ALIGN_LEFT, C_BONE, 1, text "ZOMBIES", 1) \
+	LABEL(90, 52, 300, 30, 26, FONT_BIG, 0.42, ALIGN_RIGHT, C_AMBER, 1, text sub, 1) \
+	TINT(-440, 97, 880, 2, HA_CENTER, VA_TOP, "line_horizontal", C_BLOOD, 1, 1) \
+	TINT(0, 410, 640, 70, HA_FULL, VA_FULL, "gradient_bottom", 1 1 1, 0.95, 1) \
+	TINT(-440, 446, 880, 1, HA_CENTER, VA_TOP, "line_horizontal", C_BONE, 0.35, 1) \
+	LABEL(LEFT, 450, 500, 22, 17, FONT_TEXT, 0.3, ALIGN_LEFT, C_DIM, 1, text hints, 1) \
+	LABEL(90, 450, 300, 22, 17, FONT_TEXT, 0.3, ALIGN_RIGHT, C_DIM, 1, exp text( dvarString( "ui_vita_playername" ) ), 1)
+
+// what the focused row does (above the bottom bar), for row rowIndex
+#define HELP(rowIndex, line) \
+	LABEL(LEFT, 422, 600, 22, 17, FONT_TEXT, 0.3, ALIGN_LEFT, C_BONE, 0.8, text line, localvarint( "ui_vita_hl" ) == rowIndex)
+
+// a selectable row: x, width, height, the text's baseline and scale, rowIndex (the highlight's id), y, its label line,
+// the label's alpha (an expression), when it shows (an expression), more of its focus script, and its action.
+// Focused: the red bar from the screen's edge (barW wide from BAR_LEFT) with a soft end, the pulsing amber marker on
+// its left, the label white.
+#define ROWH(x, w, barW, h, base, scale, rowIndex, y, label, alpha, shown, focus, script) \
+	TINT(BAR_LEFT, y, barW, h, HA_CENTER, VA_TOP, "menu_button_backing", C_BLOOD, 0.95, ( shown ) && localvarint( "ui_vita_hl" ) == rowIndex) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_IMAGE \
+		rect			x y 3 h HA_CENTER VA_TOP \
+		style			WINDOW_STYLE_SHADER \
+		background		"white" \
+		forecolor		C_AMBER 1 \
+		exp forecolor A		( 0.7 + 0.3 * sin( milliseconds() / 220 ) ) \
+		visible			when( ( shown ) && localvarint( "ui_vita_hl" ) == rowIndex ) \
+		decoration \
+	} \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_BLANKBUTTON \
+		rect			x y w h HA_CENTER VA_TOP \
+		visible			when( shown ) \
+		onFocus			{ SND_OVER setLocalVarInt ui_vita_hl rowIndex; focus } \
+		action			{ SND_CLICK script } \
+	} \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_TEXT \
+		rect			x y w h HA_CENTER VA_TOP \
+		label \
+		textfont		FONT_TEXT \
+		textscale		scale \
+		textalign		ALIGN_LEFT \
+		textalignx		14 \
+		textaligny		base \
+		forecolor		C_BONE 1 \
+		exp forecolor A ( ( alpha ) * 0.8 ) \
+		visible			when( ( shown ) && localvarint( "ui_vita_hl" ) != rowIndex ) \
+		decoration \
+	} \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_TEXT \
+		rect			x y w h HA_CENTER VA_TOP \
+		label \
+		textfont		FONT_TEXT \
+		textscale		scale \
+		textalign		ALIGN_LEFT \
+		textalignx		20 \
+		textaligny		base \
+		forecolor		1 1 1 1 \
+		exp forecolor A ( alpha ) \
+		visible			when( ( shown ) && localvarint( "ui_vita_hl" ) == rowIndex ) \
+		decoration \
+	}
+
+// a big row (the main menu, the lobby)
+#define ROW_H			30
+#define ROW(x, w, barW, rowIndex, y, label, alpha, shown, focus, script) \
+	ROWH(x, w, barW, ROW_H, 22, 0.42, rowIndex, y, label, alpha, shown, focus, script)
+
+// a lobby row: its label on the left, its value line ('exp text( ... )') on the right
+#define LOBBY_ROW(rowIndex, y, label, value, script) \
+	ROW(LEFT, 400, 540, rowIndex, y, text label, 1, 1, , script) \
+	LABEL(-190, y, 190, ROW_H, 21, FONT_TEXT, 0.34, ALIGN_RIGHT, C_AMBER, 1, value, 1)
+
+// a row shown but not selectable yet (dimmed, with a note on the right)
+#define DIM_ROW(x, w, y, label, value) \
+	LABEL(x, y, w, ROW_H, 22, FONT_TEXT, 0.42, ALIGN_LEFT, C_BONE, 0.28, text label, 1) \
+	LABEL(x, y, w, ROW_H, 21, FONT_SMALL, 0.26, ALIGN_RIGHT, C_AMBER, 0.45, text value, 1)
+
+// a panel on the right: a dark box with a blood-red top edge and its caption
+#define PANEL(x, y, w, h, caption) \
+	TINT(x, y, w, h, HA_CENTER, VA_TOP, "white", 0.02 0.012 0.01, 0.62, 1) \
+	TINT(x, y, w, 2, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, 1) \
+	LABEL(x, y, w, 22, 18, FONT_SMALL, 0.26, ALIGN_LEFT, C_AMBER, 0.95, text caption, 1)
+
+// a player slot of the lobby's panel
+#define PLAYER_SLOT(y, content, alpha) \
+	TINT(96, y, 284, 24, HA_CENTER, VA_TOP, "white", 0 0 0, 0.4, 1) \
+	LABEL(106, y, 264, 24, 18, FONT_TEXT, 0.32, ALIGN_LEFT, C_BONE, alpha, content, 1)
+
+// a list row n (0-11, VITA_LIST_SLOTS in ui_main.cpp) at y, 24 apart: shown while the list has more than n rows; its
+// value (SELECTED, ON / OFF) on the right; dimmed when it needs another game start. The lists (maps, mods, modifiers)
+// share the rows' dvars: each list menu's onOpen fills them first (execnow: at once, before its focusfirst).
+#define LIST_SLOT(n, y, nameDvar, dimDvar, valueDvar, detailCmd, pickCmd, after) \
+	ROWH(LEFT, 370, 510, 22, 16, 0.33, n, y, exp text( dvarString( nameDvar ) ), ( 1 - 0.55 * dvarbool( dimDvar ) ), \
+		dvarint( "ui_vita_list_count" ) > n, execnow detailCmd;, execnow pickCmd; after) \
+	LABEL(LEFT, y, 360, 22, 16, FONT_SMALL, 0.26, ALIGN_RIGHT, C_AMBER, 1, exp text( dvarString( valueDvar ) ), \
+		dvarint( "ui_vita_list_count" ) > n)
+
+// the twelve rows; after: what a pick does besides (close the list, or nothing: the modifiers toggle)
+#define LIST_ROWS(after) \
+	LIST_SLOT(0, 134, "ui_vita_list0_name", "ui_vita_list0_dim", "ui_vita_list0_value", "bo1_vita_detail 0", "bo1_vita_pick 0", after) \
+	LIST_SLOT(1, 158, "ui_vita_list1_name", "ui_vita_list1_dim", "ui_vita_list1_value", "bo1_vita_detail 1", "bo1_vita_pick 1", after) \
+	LIST_SLOT(2, 182, "ui_vita_list2_name", "ui_vita_list2_dim", "ui_vita_list2_value", "bo1_vita_detail 2", "bo1_vita_pick 2", after) \
+	LIST_SLOT(3, 206, "ui_vita_list3_name", "ui_vita_list3_dim", "ui_vita_list3_value", "bo1_vita_detail 3", "bo1_vita_pick 3", after) \
+	LIST_SLOT(4, 230, "ui_vita_list4_name", "ui_vita_list4_dim", "ui_vita_list4_value", "bo1_vita_detail 4", "bo1_vita_pick 4", after) \
+	LIST_SLOT(5, 254, "ui_vita_list5_name", "ui_vita_list5_dim", "ui_vita_list5_value", "bo1_vita_detail 5", "bo1_vita_pick 5", after) \
+	LIST_SLOT(6, 278, "ui_vita_list6_name", "ui_vita_list6_dim", "ui_vita_list6_value", "bo1_vita_detail 6", "bo1_vita_pick 6", after) \
+	LIST_SLOT(7, 302, "ui_vita_list7_name", "ui_vita_list7_dim", "ui_vita_list7_value", "bo1_vita_detail 7", "bo1_vita_pick 7", after) \
+	LIST_SLOT(8, 326, "ui_vita_list8_name", "ui_vita_list8_dim", "ui_vita_list8_value", "bo1_vita_detail 8", "bo1_vita_pick 8", after) \
+	LIST_SLOT(9, 350, "ui_vita_list9_name", "ui_vita_list9_dim", "ui_vita_list9_value", "bo1_vita_detail 9", "bo1_vita_pick 9", after) \
+	LIST_SLOT(10, 374, "ui_vita_list10_name", "ui_vita_list10_dim", "ui_vita_list10_value", "bo1_vita_detail 10", "bo1_vita_pick 10", after) \
+	LIST_SLOT(11, 398, "ui_vita_list11_name", "ui_vita_list11_dim", "ui_vita_list11_value", "bo1_vita_detail 11", "bo1_vita_pick 11", after)
+
+// the details of the focused row (the panel right of the list): the tops of its name, author, description (descH
+// high) and note
+#define DETAILS(nameY, authorY, descY, descH, noteY) \
+	LABEL(40, nameY, 340, 30, 26, FONT_BIG, 0.4, ALIGN_LEFT, 1 1 1, 1, exp text( dvarString( "ui_vita_detail_name" ) ), 1) \
+	LABEL(40, authorY, 340, 22, 17, FONT_TEXT, 0.28, ALIGN_LEFT, C_AMBER, 0.9, exp text( dvarString( "ui_vita_detail_author" ) ), 1) \
+	itemDef \
+	{ \
+		type			ITEM_TYPE_TEXT \
+		rect			40 descY 340 descH HA_CENTER VA_TOP \
+		exp text		( dvarString( "ui_vita_detail_desc" ) ) \
+		autowrapped \
+		textfont		FONT_TEXT \
+		textscale		0.28 \
+		textalign		ALIGN_LEFT \
+		textalignx		0 \
+		textaligny		16 \
+		forecolor		C_BONE 0.9 \
+		visible			1 \
+		decoration \
+	} \
+	LABEL(40, noteY, 340, 22, 17, FONT_TEXT, 0.28, ALIGN_LEFT, C_AMBER, 0.9, exp text( dvarString( "ui_vita_detail_note" ) ), 1)
+
+menuDef
+{
+	name			"main"
+	fullscreen		1
+	rect			0 0 640 480
+	// (bo1_vita_resume: the music; back from a map the lobby started, the lobby again)
+	onOpen			{ setLocalVarInt ui_vita_hl 1; focusfirst; exec "bo1_vita_resume"; }
+	onESC			{ }
+
+	BACKGROUND("MAIN MENU", "ui_vita_sel_art", "ui_vita_sel_art_on", "X  SELECT")
+
+	ROW(LEFT, 300, 440, 1, 150, text "SOLO", 1, 1, , open lobby;)
+	// CO-OP (LAN): phase 3 - shown, not selectable yet
+	DIM_ROW(LEFT, 300, 186, "CO-OP", "COMING SOON")
+	ROW(LEFT, 300, 440, 3, 222, text "SETTINGS", 1, 1, , open vitasettings;)
+	// HD MODE / DEFAULT MODE (bo1_vita_hdmode): the game starts again at once in the other mode; a boot of the Vita is
+	// always in default mode
+	ROW(LEFT, 300, 440, 5, 258, text "HD MODE", 1, dvarint( "ui_vita_hdtab" ) == 0, , exec "bo1_vita_hdmode";)
+	ROW(LEFT, 300, 440, 5, 258, text "DEFAULT MODE", 1, dvarint( "ui_vita_hdtab" ) == 1, , exec "bo1_vita_hdmode";)
+	ROW(LEFT, 300, 440, 4, 294, text "QUIT", 1, 1, , open quitconfirm;)
+
+	HELP(1, "Play alone: pick a map, a mod and modifiers, then start.")
+	HELP(3, "Graphics, sound and controls.")
+	LABEL(LEFT, 422, 600, 22, 17, FONT_TEXT, 0.3, ALIGN_LEFT, C_BONE, 0.8,
+		text "Restart in HD MODE: lights as on the PC, slower. Every start of the Vita is in default mode.",
+		localvarint( "ui_vita_hl" ) == 5 && dvarint( "ui_vita_hdtab" ) == 0)
+	LABEL(LEFT, 422, 600, 22, 17, FONT_TEXT, 0.3, ALIGN_LEFT, C_BONE, 0.8,
+		text "Restart in DEFAULT MODE: faster, the even light.",
+		localvarint( "ui_vita_hl" ) == 5 && dvarint( "ui_vita_hdtab" ) == 1)
+	HELP(4, "Close the game.")
+
+	// what SOLO starts next, and what is installed
+	PANEL(96, 150, 284, 96, "  NEXT GAME")
+	LABEL(106, 172, 264, 30, 26, FONT_BIG, 0.42, ALIGN_LEFT, 1 1 1, 1, exp text( dvarString( "ui_vita_sel_name" ) ), 1)
+	LABEL(106, 200, 264, 20, 16, FONT_TEXT, 0.28, ALIGN_LEFT, C_DIM, 1,
+		exp text( "Mod: " + dvarString( "ui_vita_sel_modname" ) ), 1)
+	LABEL(106, 218, 264, 20, 16, FONT_TEXT, 0.28, ALIGN_LEFT, C_DIM, 1,
+		exp text( "Modifiers: " + dvarString( "ui_vita_sel_modifiersname" ) ), 1)
+	LABEL(96, 252, 284, 20, 16, FONT_SMALL, 0.25, ALIGN_RIGHT, C_DIM, 1,
+		exp text( "MAPS " + dvarint( "ui_vita_count_maps" ) + "    CUSTOM MAPS " + dvarint( "ui_vita_count_custom" )
+			+ "    MODS " + dvarint( "ui_vita_count_mods" ) ), 1)
+}
+
+// QUIT asks first: a popup over the main menu
+menuDef
+{
+	name			"quitconfirm"
+	fullscreen		0
+	rect			0 0 640 480
+	onOpen			{ setLocalVarInt ui_vita_hl 2; setfocus quit_no; }
+	onClose			{ setLocalVarInt ui_vita_hl 4; }
+	onESC			{ SND_BACK close quitconfirm; }
+
+	TINT(0, 0, 640, 480, HA_FULL, VA_FULL, "white", 0 0 0, 0.78, 1)
+	TINT(-170, 170, 340, 136, HA_CENTER, VA_TOP, "white", 0.05 0.03 0.025, 0.98, 1)
+	TINT(-170, 170, 340, 2, HA_CENTER, VA_TOP, "white", C_BLOOD, 1, 1)
+	LABEL(-150, 180, 300, 30, 26, FONT_BIG, 0.42, ALIGN_LEFT, 1 1 1, 1, text "QUIT THE GAME?", 1)
+	itemDef
+	{
+		name			quit_yes
+		type			ITEM_TYPE_BLANKBUTTON
+		rect			-160 224 320 30 HA_CENTER VA_TOP
+		visible			1
+		onFocus			{ SND_OVER setLocalVarInt ui_vita_hl 1; }
+		action			{ exec "quit"; }
+	}
+	itemDef
+	{
+		name			quit_no
+		type			ITEM_TYPE_BLANKBUTTON
+		rect			-160 258 320 30 HA_CENTER VA_TOP
+		visible			1
+		onFocus			{ SND_OVER setLocalVarInt ui_vita_hl 2; }
+		action			{ SND_BACK close quitconfirm; }
+	}
+	TINT(-170, 224, 340, 30, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.95, localvarint( "ui_vita_hl" ) == 1)
+	TINT(-170, 258, 340, 30, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.95, localvarint( "ui_vita_hl" ) == 2)
+	LABEL(-146, 224, 300, 30, 22, FONT_TEXT, 0.42, ALIGN_LEFT, C_BONE, 1, text "YES, QUIT", 1)
+	LABEL(-146, 258, 300, 30, 22, FONT_TEXT, 0.42, ALIGN_LEFT, C_BONE, 1, text "NO, STAY", 1)
+}
+
+menuDef
+{
+	name			"lobby"
+	fullscreen		1
+	rect			0 0 640 480
+	onOpen			{ execnow "bo1_vita_lobby"; setLocalVarInt ui_vita_hl 4; setfocus lobby_start; }
+	onESC			{ SND_BACK close lobby; }
+
+	BACKGROUND("SOLO LOBBY", "ui_vita_sel_art", "ui_vita_sel_art_on", "X  SELECT      O  BACK")
+
+	LOBBY_ROW(1, 150, "MAP", exp text( dvarString( "ui_vita_sel_name" ) ), open mapselect;)
+	// MOD: locked while a custom map is selected (it brings its own mod)
+	ROW(LEFT, 400, 540, 2, 186, text "MOD", 1, dvarbool( "ui_vita_mod_locked" ) == 0, , open modselect;)
+	ROW(LEFT, 400, 540, 2, 186, text "MOD", 0.45, dvarbool( "ui_vita_mod_locked" ), , )
+	LABEL(-190, 186, 190, ROW_H, 21, FONT_TEXT, 0.34, ALIGN_RIGHT, C_AMBER, 1, exp text( dvarString( "ui_vita_sel_modname" ) ), 1)
+	LOBBY_ROW(3, 222, "MODIFIERS", exp text( dvarString( "ui_vita_sel_modifiersname" ) ), open modifiers;)
+
+	// START GAME: the row the lobby opens on, set apart
+	TINT(-440, 268, 520, 1, HA_CENTER, VA_TOP, "line_horizontal", C_BONE, 0.35, 1)
+	itemDef
+	{
+		name			lobby_start
+		type			ITEM_TYPE_BLANKBUTTON
+		rect			LEFT 280 400 36 HA_CENTER VA_TOP
+		visible			1
+		onFocus			{ SND_OVER setLocalVarInt ui_vita_hl 4; }
+		action			{ SND_CLICK exec "bo1_vita_start"; }
+	}
+	TINT(BAR_LEFT, 280, 540, 36, HA_CENTER, VA_TOP, "menu_button_backing", C_BLOOD_DARK, 0.85, localvarint( "ui_vita_hl" ) != 4)
+	TINT(BAR_LEFT, 280, 540, 36, HA_CENTER, VA_TOP, "menu_button_backing", C_BLOOD, 1, localvarint( "ui_vita_hl" ) == 4)
+	itemDef
+	{
+		type			ITEM_TYPE_IMAGE
+		rect			LEFT 280 3 36 HA_CENTER VA_TOP
+		style			WINDOW_STYLE_SHADER
+		background		"white"
+		forecolor		C_AMBER 1
+		exp forecolor A		( 0.7 + 0.3 * sin( milliseconds() / 220 ) )
+		visible			when( localvarint( "ui_vita_hl" ) == 4 )
+		decoration
+	}
+	LABEL(-370, 280, 380, 36, 27, FONT_BIG, 0.44, ALIGN_LEFT, 1 1 1, 1, text "START GAME", 1)
+	LABEL(LEFT, 322, 400, 22, 16, FONT_TEXT, 0.28, ALIGN_LEFT, C_AMBER, 0.9, exp text( dvarString( "ui_vita_lobby_note" ) ), 1)
+
+	HELP(1, "Choose the map: the original ones or a custom map.")
+	HELP(2, "A mod changes the original maps. One at a time.")
+	HELP(3, "Extras for this map. Any combination.")
+	HELP(4, "Start the game with this setup.")
+
+	// the players: you, the host; three empty slots (LAN co-op fills them later)
+	PANEL(96, 150, 284, 22, "  PLAYERS")
+	PLAYER_SLOT(176, exp text( dvarString( "ui_vita_playername" ) ), 1)
+	LABEL(96, 176, 274, 24, 18, FONT_SMALL, 0.25, ALIGN_RIGHT, C_AMBER, 1, text "HOST", 1)
+	PLAYER_SLOT(204, text "-", 0.3)
+	PLAYER_SLOT(232, text "-", 0.3)
+	PLAYER_SLOT(260, text "-", 0.3)
+}
+
+menuDef
+{
+	name			"mapselect"
+	fullscreen		1
+	rect			0 0 640 480
+	onOpen			{ execnow "bo1_vita_list 0"; setLocalVarInt ui_vita_hl 0; focusfirst; execnow "bo1_vita_detail 0"; }
+	onESC			{ SND_BACK close mapselect; }
+	execKeyInt KEY_DPAD_LEFT { SND_OVER execnow "bo1_vita_tab 0"; setLocalVarInt ui_vita_hl 0; focusfirst; execnow "bo1_vita_detail 0"; }
+	execKeyInt KEY_DPAD_RIGHT { SND_OVER execnow "bo1_vita_tab 1"; setLocalVarInt ui_vita_hl 0; focusfirst; execnow "bo1_vita_detail 0"; }
+
+	BACKGROUND("SELECT MAP", "ui_vita_detail_art", "ui_vita_detail_art_on", "X  SELECT      O  BACK      LEFT / RIGHT  ORIGINAL / CUSTOM")
+
+	// the tabs: the active one bright on a blood-red tab
+	TINT(LEFT, 104, 110, 22, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, dvarint( "ui_vita_tab" ) == 0)
+	TINT(-276, 104, 110, 22, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, dvarint( "ui_vita_tab" ) == 1)
+	TINT(LEFT, 104, 110, 22, HA_CENTER, VA_TOP, "white", 0 0 0, 0.45, dvarint( "ui_vita_tab" ) != 0)
+	TINT(-276, 104, 110, 22, HA_CENTER, VA_TOP, "white", 0 0 0, 0.45, dvarint( "ui_vita_tab" ) != 1)
+	LABEL(LEFT, 104, 110, 22, 17, FONT_TEXT, 0.32, ALIGN_CENTER, 1 1 1, 1, text "ORIGINAL", dvarint( "ui_vita_tab" ) == 0)
+	LABEL(LEFT, 104, 110, 22, 17, FONT_TEXT, 0.32, ALIGN_CENTER, C_BONE, 0.5, text "ORIGINAL", dvarint( "ui_vita_tab" ) != 0)
+	LABEL(-276, 104, 110, 22, 17, FONT_TEXT, 0.32, ALIGN_CENTER, 1 1 1, 1, text "CUSTOM", dvarint( "ui_vita_tab" ) == 1)
+	LABEL(-276, 104, 110, 22, 17, FONT_TEXT, 0.32, ALIGN_CENTER, C_BONE, 0.5, text "CUSTOM", dvarint( "ui_vita_tab" ) != 1)
+
+	LIST_ROWS(close mapselect;)
+	LABEL(LEFT, 134, 370, 22, 16, FONT_TEXT, 0.3, ALIGN_LEFT, C_DIM, 1,
+		text "No custom maps installed - convert one with the converter",
+		dvarint( "ui_vita_tab" ) == 1 && dvarint( "ui_vita_list_count" ) == 0)
+
+	// the focused map's art (16:9, as the loading screens are drawn) in an amber frame, above its details
+	TINT(28, 132, 354, 290, HA_CENTER, VA_TOP, "white", 0.02 0.012 0.01, 0.62, 1)
+	TINT(39, 141, 290, 165, HA_CENTER, VA_TOP, "white", C_AMBER, 0.55, dvarbool( "ui_vita_detail_art_on" ))
+	ART(40, 142, 288, 163, HA_CENTER, VA_TOP, "ui_vita_detail_art", "ui_vita_detail_art_on")
+	DETAILS(310, 336, 356, 46, 400)
+}
+
+menuDef
+{
+	name			"modselect"
+	fullscreen		1
+	rect			0 0 640 480
+	onOpen			{ execnow "bo1_vita_list 1"; setLocalVarInt ui_vita_hl 0; focusfirst; execnow "bo1_vita_detail 0"; }
+	onESC			{ SND_BACK close modselect; }
+
+	BACKGROUND("SELECT MOD", "ui_vita_sel_art", "ui_vita_sel_art_on", "X  SELECT      O  BACK")
+
+	LABEL(LEFT, 106, 370, 22, 17, FONT_TEXT, 0.28, ALIGN_LEFT, C_DIM, 1, text "A mod changes the original maps (one at a time)", 1)
+	LIST_ROWS(close modselect;)
+
+	TINT(28, 132, 354, 290, HA_CENTER, VA_TOP, "white", 0.02 0.012 0.01, 0.62, 1)
+	TINT(28, 132, 354, 2, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, 1)
+	DETAILS(144, 172, 196, 150, 380)
+}
+
+menuDef
+{
+	name			"modifiers"
+	fullscreen		1
+	rect			0 0 640 480
+	onOpen			{ execnow "bo1_vita_list 2"; setLocalVarInt ui_vita_hl 0; focusfirst; execnow "bo1_vita_detail 0"; }
+	onESC			{ SND_BACK close modifiers; }
+
+	BACKGROUND("MODIFIERS", "ui_vita_sel_art", "ui_vita_sel_art_on", "X  ON / OFF      O  BACK")
+
+	LABEL(LEFT, 106, 370, 22, 17, FONT_TEXT, 0.28, ALIGN_LEFT, C_DIM, 1, text "Turn on any combination for this map", 1)
+	// (a pick turns the modifier on or off: the list stays)
+	LIST_ROWS( )
+	LABEL(LEFT, 134, 370, 22, 16, FONT_TEXT, 0.3, ALIGN_LEFT, C_DIM, 1, text "No modifiers for this map",
+		dvarint( "ui_vita_list_count" ) == 0)
+
+	TINT(28, 132, 354, 290, HA_CENTER, VA_TOP, "white", 0.02 0.012 0.01, 0.62, 1)
+	TINT(28, 132, 354, 2, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, 1)
+	DETAILS(144, 172, 196, 150, 380)
+}
+
+// the settings page (2026-11-11; instead of the game's settings window; 14 rows 22 apart since 2026-11-18): tabs GRAPHICS and SOUND (L / R), a row per
+// setting with its value (left / right or X change it; the focused row's value is shown between arrows), the focused
+// setting's description on the right. The engine fills the rows (ui_main.cpp UI_Vita_PageFill: ui_vita_set<n>_label /
+// _value, ui_vita_set_count) and changes the values; the pause menu's SETTINGS opens it too (UI_Vita_RedirectSettings),
+// and closing it there goes back to the pause menu (bo1_vita_setback). Saved when it closes (UI_Vita_SettingsFrame).
+// A section's heading (ui_vita_set<n>_head 1, 2026-11-23: DISPLAY, DETAIL, MAP EFFECTS): its name in amber left of the
+// rows' labels over a thin red line, no row button (never focused)
+#define SET_SLOT(n, y, lineY, labelDvar, valueDvar, headDvar, focusCmd, actionCmd) 	ROWH(LEFT, 400, 540, 22, 16, 0.33, n, y, exp text( dvarString( labelDvar ) ), 1, 		dvarint( "ui_vita_set_count" ) > n && dvarint( headDvar ) == 0, execnow focusCmd;, execnow actionCmd;) 	LABEL(LEFT, y, 390, 22, 16, FONT_TEXT, 0.3, ALIGN_RIGHT, C_AMBER, 1, exp text( dvarString( valueDvar ) ), 		dvarint( "ui_vita_set_count" ) > n && dvarint( headDvar ) == 0) 	LABEL(LEFT, y, 390, 22, 17, FONT_TEXT, 0.34, ALIGN_LEFT, C_AMBER, 1, exp text( dvarString( labelDvar ) ), 		dvarint( "ui_vita_set_count" ) > n && dvarint( headDvar ) == 1) 	TINT(LEFT, lineY, 390, 1, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.8, 		dvarint( "ui_vita_set_count" ) > n && dvarint( headDvar ) == 1)
+
+// a tab at x (w wide), its number and its name, shown when hd is ui_vita_hdtab (the HD tab's row of five, or four)
+#define SET_TAB(x, w, n, name, hd) \
+	TINT(x, 104, w, 22, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, dvarint( "ui_vita_settab" ) == n && dvarint( "ui_vita_hdtab" ) == hd) \
+	TINT(x, 104, w, 22, HA_CENTER, VA_TOP, "white", 0 0 0, 0.45, dvarint( "ui_vita_settab" ) != n && dvarint( "ui_vita_hdtab" ) == hd) \
+	LABEL(x, 104, w, 22, 17, FONT_TEXT, 0.3, ALIGN_CENTER, 1 1 1, 1, text name, dvarint( "ui_vita_settab" ) == n && dvarint( "ui_vita_hdtab" ) == hd) \
+	LABEL(x, 104, w, 22, 17, FONT_TEXT, 0.3, ALIGN_CENTER, C_BONE, 0.5, text name, dvarint( "ui_vita_settab" ) != n && dvarint( "ui_vita_hdtab" ) == hd)
+
+// (the engine switches only when the tab changes and then focuses the first row - with its sound - once: the keys
+// come again and again while L / R are held)
+#define SET_TAB_KEYS(key, tab) \
+	execKeyInt key { execnow tab; }
+
+menuDef
+{
+	name			"vitasettings"
+	fullscreen		1
+	rect			0 0 640 480
+	onOpen			{ execnow "bo1_vita_setfill"; setLocalVarInt ui_vita_hl 0; focusfirst; }
+	// (in a game the pause menu opens first, in the same script - as the game's settings window did: with the page
+	// closed first, the game had resumed by the time a deferred exec ran)
+	onESC			{ SND_BACK execnow "bo1_vita_setback"; close vitasettings; }
+	execKeyInt KEY_DPAD_LEFT { SND_OVER execnow "bo1_vita_setstep -1"; }
+	execKeyInt KEY_DPAD_RIGHT { SND_OVER execnow "bo1_vita_setstep 1"; }
+	// up / down: the engine moves the focus and scrolls the rows (a tab may have more rows than the 14 slots)
+	execKeyInt KEY_DPAD_UP { execnow "bo1_vita_setmove -1"; }
+	execKeyInt KEY_DPAD_DOWN { execnow "bo1_vita_setmove 1"; }
+	execKeyInt KEY_APAD_UP { execnow "bo1_vita_setmove -1"; }
+	execKeyInt KEY_APAD_DOWN { execnow "bo1_vita_setmove 1"; }
+	execKeyInt KEY_UPARROW { execnow "bo1_vita_setmove -1"; }
+	execKeyInt KEY_DOWNARROW { execnow "bo1_vita_setmove 1"; }
+	// the tabs: L / R (the Vita's shoulder buttons are the gamepad's triggers; the shoulder codes too)
+	SET_TAB_KEYS(18, "bo1_vita_settab prev")
+	SET_TAB_KEYS(19, "bo1_vita_settab next")
+	SET_TAB_KEYS(5, "bo1_vita_settab prev")
+	SET_TAB_KEYS(6, "bo1_vita_settab next")
+
+	BACKGROUND("SETTINGS", "ui_vita_sel_art", "ui_vita_sel_art_on", "X / LEFT RIGHT  CHANGE      O  BACK      L / R  TABS")
+
+	// the tabs (GRAPHICS, HD in HD MODE, CONTROLS, SOUND, DEV): the active one bright on a blood-red tab
+	SET_TAB(LEFT, 96, 0, "GRAPHICS", 0)
+	SET_TAB(-290, 96, 2, "CONTROLS", 0)
+	SET_TAB(-190, 96, 3, "SOUND", 0)
+	SET_TAB(-90, 96, 4, "DEV", 0)
+	SET_TAB(LEFT, 78, 0, "GRAPHICS", 1)
+	SET_TAB(-308, 78, 1, "HD", 1)
+	SET_TAB(-226, 78, 2, "CONTROLS", 1)
+	SET_TAB(-144, 78, 3, "SOUND", 1)
+	SET_TAB(-62, 78, 4, "DEV", 1)
+	LABEL(14, 104, 60, 22, 17, FONT_SMALL, 0.25, ALIGN_LEFT, C_DIM, 1, text "L / R", 1)
+
+	SET_SLOT(0, 132, 152, "ui_vita_set0_label", "ui_vita_set0_value", "ui_vita_set0_head", "bo1_vita_setfocus 0", "bo1_vita_setaction 0")
+	SET_SLOT(1, 154, 174, "ui_vita_set1_label", "ui_vita_set1_value", "ui_vita_set1_head", "bo1_vita_setfocus 1", "bo1_vita_setaction 1")
+	SET_SLOT(2, 176, 196, "ui_vita_set2_label", "ui_vita_set2_value", "ui_vita_set2_head", "bo1_vita_setfocus 2", "bo1_vita_setaction 2")
+	SET_SLOT(3, 198, 218, "ui_vita_set3_label", "ui_vita_set3_value", "ui_vita_set3_head", "bo1_vita_setfocus 3", "bo1_vita_setaction 3")
+	SET_SLOT(4, 220, 240, "ui_vita_set4_label", "ui_vita_set4_value", "ui_vita_set4_head", "bo1_vita_setfocus 4", "bo1_vita_setaction 4")
+	SET_SLOT(5, 242, 262, "ui_vita_set5_label", "ui_vita_set5_value", "ui_vita_set5_head", "bo1_vita_setfocus 5", "bo1_vita_setaction 5")
+	SET_SLOT(6, 264, 284, "ui_vita_set6_label", "ui_vita_set6_value", "ui_vita_set6_head", "bo1_vita_setfocus 6", "bo1_vita_setaction 6")
+	SET_SLOT(7, 286, 306, "ui_vita_set7_label", "ui_vita_set7_value", "ui_vita_set7_head", "bo1_vita_setfocus 7", "bo1_vita_setaction 7")
+	SET_SLOT(8, 308, 328, "ui_vita_set8_label", "ui_vita_set8_value", "ui_vita_set8_head", "bo1_vita_setfocus 8", "bo1_vita_setaction 8")
+	SET_SLOT(9, 330, 350, "ui_vita_set9_label", "ui_vita_set9_value", "ui_vita_set9_head", "bo1_vita_setfocus 9", "bo1_vita_setaction 9")
+	SET_SLOT(10, 352, 372, "ui_vita_set10_label", "ui_vita_set10_value", "ui_vita_set10_head", "bo1_vita_setfocus 10", "bo1_vita_setaction 10")
+	SET_SLOT(11, 374, 394, "ui_vita_set11_label", "ui_vita_set11_value", "ui_vita_set11_head", "bo1_vita_setfocus 11", "bo1_vita_setaction 11")
+	SET_SLOT(12, 396, 416, "ui_vita_set12_label", "ui_vita_set12_value", "ui_vita_set12_head", "bo1_vita_setfocus 12", "bo1_vita_setaction 12")
+	SET_SLOT(13, 418, 438, "ui_vita_set13_label", "ui_vita_set13_value", "ui_vita_set13_head", "bo1_vita_setfocus 13", "bo1_vita_setaction 13")
+
+	// the focused setting: its name and what it does
+	TINT(40, 132, 342, 160, HA_CENTER, VA_TOP, "white", 0.02 0.012 0.01, 0.62, 1)
+	TINT(40, 132, 342, 2, HA_CENTER, VA_TOP, "white", C_BLOOD, 0.9, 1)
+	LABEL(54, 142, 320, 30, 26, FONT_BIG, 0.4, ALIGN_LEFT, 1 1 1, 1, exp text( dvarString( "ui_vita_setname" ) ), 1)
+	// more rows than shown: where the focus is, and which way the rest lies
+	LABEL(54, 298, 320, 22, 17, FONT_TEXT, 0.28, ALIGN_LEFT, C_AMBER, 0.9, exp text( dvarString( "ui_vita_setmore" ) ), 1)
+	itemDef
+	{
+		type			ITEM_TYPE_TEXT
+		rect			54 176 316 110 HA_CENTER VA_TOP
+		exp text		( dvarString( "ui_vita_setdesc" ) )
+		autowrapped
+		textfont		FONT_TEXT
+		textscale		0.3
+		textalign		ALIGN_LEFT
+		textalignx		0
+		textaligny		17
+		forecolor		C_BONE 0.9
+		visible			1
+		decoration
+	}
+}

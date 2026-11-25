@@ -1,0 +1,3 @@
+zone/Common/zombie_cod5_asylum.ff	38953888	4d4e5ebe0acbfe70f63626d87f5950a9cfc58365
+zone/Common/zombie_cod5_asylum_patch.ff	349504	b3b277186d5ab279f8ec3d8eaea480599ab8cc64
+zone/English/en_zombie_cod5_asylum.ff	1052736	57c287330c4f39132a88b58232a98b780bbfde53

@@ -1,0 +1,3 @@
+zone/Common/zombie_temple.ff	56924128	8314a6fa8e838d45ae1262d56b0510553002ee92
+zone/Common/zombie_temple_patch.ff	315136	c8bf5ab597a2e09d9039b0c891f15a34d7754073
+zone/English/en_zombie_temple.ff	395520	5cc642d81dc547c70b5f8c03e9bb904a9057b24b

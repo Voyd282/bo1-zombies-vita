@@ -1,0 +1,5 @@
+// The Vita front end (bo1_vita_frontend 1): parsed at every UI_Load by the engine's text menu parser
+// (ui_shared_obj.cpp UI_LoadMenus_LoadObj -> UI_ParseMenuInternal). Our own files, shipped next to the game data.
+{
+	loadMenu { "ui_vita/main.menu" }
+}

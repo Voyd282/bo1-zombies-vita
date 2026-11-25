@@ -1,0 +1,9 @@
+{
+"classname" "actor_zombie_monkey_01"
+"targetname" "monkey_zombie_spawner"
+"spawnflags" "3"
+"count" "9999"
+"script_forcespawn" "1"
+"origin" "839.4 -458.8 80.125"
+"angles" "0 240 0"
+}

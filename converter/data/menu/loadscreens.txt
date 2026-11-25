@@ -1,0 +1,11 @@
+loadscreen_zombie_theater
+loadscreen_zombie_pentagon
+loadscreen_zombie_deadops
+loadscreen_zombie_cosmodrome
+loadscreen_zombie_coast
+loadscreen_zombie_temple
+loadscreen_zombie_moon
+loadscreen_zombie_prototype
+loadscreen_zombie_asylum
+loadscreen_zombie_sumpf
+loadscreen_zombie_factory

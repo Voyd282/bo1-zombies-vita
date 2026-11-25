@@ -1,0 +1,3 @@
+zone/Common/zombie_coast.ff	53530144	008119985af251605b0d012c7c4de6761d6f46b4
+zone/Common/zombie_coast_patch.ff	321504	cd165e72b17f133c82c3ae2bae86439ed94972f1
+zone/English/en_zombie_coast.ff	41920	655615ba8300c4fb60db8b4cf7ecb8f29e32f9ac

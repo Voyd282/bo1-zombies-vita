@@ -1,0 +1,6 @@
+type modifier
+name HORDE
+description The next round starts as soon as the last zombie of the round has spawned; zombies still alive carry over. Up to 24 zombies at once, as in the original.
+maps zombie_pentagon
+order 10
+args +set horde_hud 0 +set horde_max_zombies 24

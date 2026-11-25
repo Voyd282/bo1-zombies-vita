@@ -1,0 +1,3 @@
+zone/Common/zombie_cod5_factory.ff	49017408	750a20d22507cf86a242c5c730f4e9d4cd1c16fb
+zone/Common/zombie_cod5_factory_patch.ff	344864	b61b7233b31a3b51d8f05c454de1ede354d34a56
+zone/English/en_zombie_cod5_factory.ff	4908960	eb906fc60c09351d5f716029c402bed25d520bc4

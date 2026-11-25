@@ -1,0 +1,20 @@
+{
+"classname" "actor_zombie_napalm"
+"script_noteworthy" "napalm_zombie_spawner"
+"targetname" "mod_napalm_spawner"
+"spawnflags" "3"
+"count" "9999"
+"script_forcespawn" "1"
+"origin" "-1954.8 2389.1 -507"
+"angles" "0 178 0"
+}
+{
+"classname" "actor_zombie_sonic"
+"script_noteworthy" "sonic_zombie_spawner"
+"targetname" "mod_sonic_spawner"
+"spawnflags" "3"
+"count" "9999"
+"script_forcespawn" "1"
+"origin" "-1954.8 2389.1 -507"
+"angles" "0 178 0"
+}

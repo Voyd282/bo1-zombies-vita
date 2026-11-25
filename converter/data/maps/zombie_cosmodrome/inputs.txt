@@ -1,0 +1,3 @@
+zone/Common/zombie_cosmodrome.ff	53103328	4dc5a2db3a5ade88cc65563d4826a4669db156f0
+zone/Common/zombie_cosmodrome_patch.ff	392032	4b666187ac2b62d5cb524d90731f6c88548e2c80
+zone/English/en_zombie_cosmodrome.ff	32064	d564958ae871bbf45decb338570ef2ef7de7e85d

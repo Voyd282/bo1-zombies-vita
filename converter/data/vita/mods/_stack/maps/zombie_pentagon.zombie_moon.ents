@@ -1,0 +1,9 @@
+{
+"classname" "actor_zombie_moon_zombie_astronaut"
+"targetname" "astronaut_zombie"
+"spawnflags" "3"
+"count" "9999"
+"script_forcespawn" "1"
+"origin" "-1954.8 2389.1 -507"
+"angles" "0 178 0"
+}
