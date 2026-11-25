@@ -490,8 +490,11 @@ class Converter:
 
     def tool(self, script, args, log):
         with open(log, "w", encoding="utf-8") as f:
+            # (the tools' ffmpeg threads: the CPU's share of one of the jobs running at once - else every zone of
+            # several would start as many ffmpeg as the CPU has cores)
+            env = dict(os.environ, BO1_TOOL_THREADS=str(max(1, (os.cpu_count() or 4) // max(1, self.jobs))))
             r = subprocess.run([sys.executable, "-I", os.path.join(self.tools, script)] + args, stdout=f,
-                               stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
+                               stderr=subprocess.STDOUT, creationflags=NO_WINDOW, env=env)
         return r.returncode
 
     # ---- zones

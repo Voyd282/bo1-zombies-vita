@@ -55,6 +55,10 @@ import os
 import shutil
 import struct
 import subprocess
+# (no console window for each ffmpeg: under the converter's window, pythonw, every one would open its own)
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+# (threads for the ffmpeg conversions: the converter runs several zones at once and divides the CPU among them)
+FFMPEG_THREADS = int(os.environ.get("BO1_TOOL_THREADS") or 0) or max(2, os.cpu_count() or 2)
 import sys
 import tempfile
 import zlib
@@ -183,7 +187,8 @@ class FfmpegError(RuntimeError):
 
 
 def run_ffmpeg(ffmpeg, args):
-    r = subprocess.run([ffmpeg, "-v", "error", "-y"] + args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    r = subprocess.run([ffmpeg, "-v", "error", "-y"] + args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                       creationflags=NO_WINDOW)
     if r.returncode:
         raise FfmpegError("ffmpeg exit %d: %s" % (r.returncode, r.stderr.decode(errors="replace").strip()[:300]))
 
@@ -1069,7 +1074,7 @@ def convert_sounds(stream, events, ffmpeg, cache_dir, formats):
         return {}
     os.makedirs(cache_dir, exist_ok=True)
     results = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2)) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=FFMPEG_THREADS) as pool:
         futures = {pool.submit(convert_sound, job, ffmpeg, cache_dir): a for a, job in jobs.items()}
         for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
             results[futures[future]] = future.result()

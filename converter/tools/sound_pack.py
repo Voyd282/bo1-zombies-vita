@@ -26,6 +26,10 @@ import os
 import shutil
 import struct
 import subprocess
+# (no console window for each ffmpeg: under the converter's window, pythonw, every one would open its own)
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+# (threads for the ffmpeg conversions: the converter runs several zones at once and divides the CPU among them)
+FFMPEG_THREADS = int(os.environ.get("BO1_TOOL_THREADS") or 0) or max(2, os.cpu_count() or 2)
 import sys
 import tempfile
 import zipfile
@@ -62,7 +66,7 @@ def resample_stream(data, rate, ffmpeg, cache_dir):
             f.write(b"RIFF" + struct.pack("<I", len(riff)) + riff)
         subprocess.run([ffmpeg, "-v", "error", "-y", "-i", src, "-ar", str(rate), "-ac", str(channels), "-c:a",
                         "adpcm_ms", "-block_size", str(VITA_BLOCK * channels), dst],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, creationflags=NO_WINDOW)
         wav = open(dst, "rb").read()
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -143,7 +147,7 @@ def main():
                 if not args.rate or entry.replace("\\", "/").lower() in primed:
                     return entry, data, data
                 return entry, data, resample_stream(data, args.rate, args.ffmpeg, args.sound_cache)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2)) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=FFMPEG_THREADS) as pool:
                 for entry, original, data in pool.map(convert, datas):
                     dst.writestr(zipfile.ZipInfo(entry), data, compress_type=zipfile.ZIP_STORED)
                     total += len(data)
