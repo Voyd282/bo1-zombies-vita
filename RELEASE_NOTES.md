@@ -12,6 +12,10 @@
 - **HD MODE**: world lit by its lamps, spotlights and the sun, lit models, shadows - as on the PC.
 - **Settings** on five pages (Graphics, HD, Controls, Sound, Dev); gyro aiming, touch options, button layouts.
 - Weapon reflections as on the PC (WEAPON SHINE), the maps' skies, fog and color filters, particle clouds.
+- The dog rounds' fog only during a dog round (Nacht der Untoten's own light fog no longer costs frames all game).
+- Bushes drawn whole up close (the converter keeps a foliage model's full detail when its next level is a flat card).
+- Deadshot Daiquiri aims at the head as on the consoles; the Gersch device's black hole sits on the device; Moon's
+  helmet overlay stays under the HUD.
 - PS Vita buttons in the game's prompts and the HUD (Xelu's controller prompts, CC0).
 - The port's own cover: icon, LiveArea, start screen, loading picture.
 - Many fixes and speed-ups since 0.1.

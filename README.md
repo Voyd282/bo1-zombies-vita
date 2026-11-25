@@ -78,7 +78,7 @@ buttons.
 
 | Page | Settings |
 | --- | --- |
-| Graphics | FPS limit, resolution (restart), render distance, field of view, show FPS, model detail, weapon shine, dog round fog, color filters, snow and dust |
+| Graphics | FPS limit, resolution (restart), render distance, field of view, show FPS, model detail, weapon shine, color filters, snow and dust |
 | HD (HD MODE only) | World lights, model lights, shadows |
 | Controls | Button layout, look / aim sensitivity, invert look, aim assist, gyro aiming and sensitivity, rear touch, front touch, auto sprint |
 | Sound | Master, music, effects and voice volume |
