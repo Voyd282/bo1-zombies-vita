@@ -283,7 +283,7 @@ menuDef
 	ROW(LEFT, 300, 440, 3, 222, text "SETTINGS", 1, 1, , open vitasettings;)
 	// HD MODE / DEFAULT MODE (bo1_vita_hdmode): the game starts again at once in the other mode; a boot of the Vita is
 	// always in default mode
-	ROW(LEFT, 300, 440, 5, 258, text "HD MODE", 1, dvarint( "ui_vita_hdtab" ) == 0, , exec "bo1_vita_hdmode";)
+	ROW(LEFT, 300, 440, 5, 258, text "HD MODE (EXPERIMENTAL)", 1, dvarint( "ui_vita_hdtab" ) == 0, , exec "bo1_vita_hdmode";)
 	ROW(LEFT, 300, 440, 5, 258, text "DEFAULT MODE", 1, dvarint( "ui_vita_hdtab" ) == 1, , exec "bo1_vita_hdmode";)
 	ROW(LEFT, 300, 440, 4, 294, text "QUIT", 1, 1, , open quitconfirm;)
 
